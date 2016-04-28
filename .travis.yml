@@ -16,3 +16,5 @@ script:
   - pprofile --statistic .01 demo/empty.py
   - pprofile --format callgrind --zipfile source_code.zip demo/threads.py
   - pprofile --format callgrind --zipfile source_code.zip demo/empty.py
+  - pprofile --exclude-syspath demo/threads.py
+  - pprofile --exclude-syspath --statistic .01 demo/threads.py
