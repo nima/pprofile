@@ -44,6 +44,27 @@ As a module:
 
 For advanced usage, see :code:`pprofile --help` and :code:`pydoc pprofile`.
 
+If instead you'd like to access the profile data programatically:
+
+.. code:: python
+  import pprofiler
+
+  def slowcode(a, b, c):
+      # ...
+
+  stats = pprofiler.profile(slowcode, 1, 2, 3)
+  p = pprofiler.Profiler(stats)
+
+  # all lines of code in files within my project
+  slowest_in_myproject = p.get_filtered_profile(2, ['file:.*myproject/.*\.py$'])
+
+  # all lines of code in files within the file called `numbers.py'
+  slowest_in_numbers = p.get_filtered_profile(2, ['file:.*/numbers\.py$'])
+
+  from pprofile.profiler import jprint
+  jprint(slowest_in_myproject)
+  jprint(slowest_in_numbers)
+
 Output
 ======
 
