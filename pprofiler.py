@@ -5,6 +5,11 @@ import copy
 from md5 import md5
 from itertools import groupby
 
+C_PROFILE_TOO = False
+if C_PROFILE_TOO:
+    import cProfile
+    import pstats
+
 in_color = True
 try:
     from pygments import highlight, lexers, formatters
@@ -27,7 +32,7 @@ def jprint(obj):
 
 class Profiler:
     @staticmethod
-    def filename(tag, fn, *args, **kwargs):
+    def filename(suffix, tag, fn, *args, **kwargs):
         hsh = md5(
             ', '.join(
                 [
@@ -38,27 +43,7 @@ class Profiler:
             )
         ).hexdigest()
 
-        return '/tmp/pprofiler-save-%s-%s(%s).json' % (tag, fn.__name__, hsh)
-
-    @staticmethod
-    def profile(tag, fn, *args, **kwargs):
-        '''Returns the expensive stats object for consumption in the `Profiler'.'''
-
-        saved = Profiler.filename(tag, fn, *args, **kwargs)
-        try:
-            with open(saved, 'r') as fH:
-                dump = json.load(fH)
-        except IOError:
-            profiler = pprofile.Profile()
-            with profiler:
-                fn(*args, **kwargs)
-            dump = profiler.get_stats()
-
-            with open(saved, 'w') as fH:
-                fH.write(json.dumps(dump))
-
-        return dump
-
+        return '/tmp/pprofiler.%s.%s(%s).%s.json' % (tag, fn.__name__, hsh, suffix)
 
     @staticmethod
     def _colorize_code(lines):
@@ -74,8 +59,45 @@ class Profiler:
 
         return color_lines
 
-    def __init__(self, stats):
-        self._stats = stats
+    def __init__(self, tag, fn, *args, **kwargs):
+
+        saved = {
+            'profile' : Profiler.filename('stats', tag, fn, *args, **kwargs),
+            'output' : Profiler.filename('output', tag, fn, *args, **kwargs),
+        }
+
+        captured = False
+        self._stats = None
+        self._output = None
+
+        try:
+            with open(saved['profile'], 'r') as fH:
+                self._stats = json.load(fH)
+        except IOError:
+            profiler = pprofile.Profile()
+            with profiler:
+                self._output = fn(*args, **kwargs)
+                captured = True
+
+            self._stats = profiler.get_stats()
+
+            with open(saved['profile'], 'w') as fH:
+                fH.write(json.dumps(self._stats))
+
+        if captured:
+            with open(saved['output'], 'w') as fH:
+                fH.write(json.dumps(self._output))
+        else:
+            with open(saved['output'], 'r') as fH:
+                self._output = json.load(fH)
+
+
+        if C_PROFILE_TOO:
+            cpr = cProfile.Profile()
+            self._output_cprofile = cpr.runcall(fn(*args, **kwargs))
+            self._stats_cprofile = pstats.Stats(cpr)
+            #self._stats_cprofile.sort_stats('cumulative').print_stats(5)
+
 
     def overhead(self):
         actual = sum([f['duration'] for f in self._stats['command_profile']])
